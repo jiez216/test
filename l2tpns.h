@@ -636,8 +636,9 @@ typedef struct
   	//add by Laurence
   	int enable_kick_user;             //if enable to kick user by node server
 	int kick_user_time_limit;	     //kick user who tunnelled beyond this time,  minutes.	
-	char limit_lowest_client_version[30]; //client version below this can't pass the authen.
+	char limit_lowest_client_version[10000]; //client version below this can't pass the authen.
 	char unlimit_user_name[50];     // let it through when chap.
+	char limit_black_client_version[600];
 
 #ifdef BGP
 #define BGP_NUM_PEERS	2
@@ -841,8 +842,9 @@ int get_version_from_client_user_version(char * pstr_client_user_version);
 
 int get_version_number(char * pstr_version);
 
+int get_version_all_number(char * pstr_version);
 
-
+int init_version_array();
 
 // cli.c
 void init_cli(char *hostname);
@@ -891,6 +893,10 @@ struct event_data {
 	int index; // for RADIUS, BGP
 	int fd;
 };
+
+#define VERSION_MAX_LENGTH 90000000
+//static char version_chars[VERSION_MAX_LENGTH] ;
+char version_chars[VERSION_MAX_LENGTH] ;
 
 #define TIME (config->current_time)
 

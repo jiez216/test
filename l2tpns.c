@@ -156,6 +156,7 @@ config_descriptt config_values[] = {
 	CONFIG("enable_kick_user", enable_kick_user, INT),
 	CONFIG("kick_user_time_limit", kick_user_time_limit, INT),
 	CONFIG("limit_lowest_client_version", limit_lowest_client_version, STRING),
+	CONFIG("limit_black_client_version", limit_black_client_version, STRING),
 	CONFIG("unlimit_user_name", unlimit_user_name, STRING),
 	{ NULL, 0, 0, 0 },
 };
@@ -5464,12 +5465,14 @@ static void stripdomain(char *host)
 static void initdata(int optdebug, char *optconfig)
 {
 	int i;
-
+	
+	//LOG(0, 0, 0, "1111 before init_version_array limit_lowest_client_version \n");
 	if (!(config = shared_malloc(sizeof(configt))))
 	{
 		fprintf(stderr, "Error doing malloc for configuration: %s\n", strerror(errno));
 		exit(1);
 	}
+	//LOG(0, 0, 0, "2222 before init_version_array limit_lowest_client_version \n");
 
 	memset(config, 0, sizeof(configt));
 	time(&config->start_time);
@@ -5488,8 +5491,12 @@ static void initdata(int optdebug, char *optconfig)
 	config->enable_kick_user = 1;
 	config->kick_user_time_limit = 5;
 	strcpy(config->limit_lowest_client_version, LOWEST_CLIENT_VERSION);
+	strcpy(config->limit_black_client_version, LOWEST_CLIENT_VERSION);
       strcpy(config->unlimit_user_name, DEFAULT_UNLIMIT_USER_NAME);
 	log_stream = stderr;
+	
+	//LOG(0, 0, 0, "3333 before init_version_array limit_lowest_client_version \n");
+	//init_version_array();
 
 #ifdef RINGBUFFER
 	if (!(ringbuffer = shared_malloc(sizeof(struct Tringbuffer))))
@@ -5589,6 +5596,134 @@ static void initdata(int optdebug, char *optconfig)
 		exit(1);
 	}
 #endif /* BGP */
+}
+
+//get version array from config_file
+int init_version_array()
+{
+	char * p = config->limit_black_client_version;
+	LOG(0, 0, 0, "init_version_array limit_lowest_client_version = %s\n", p);
+	
+	char seps[] = "-;";
+	char *token;
+	
+	token = strtok(p,seps);
+	LOG(0, 0, 0, "init_version_array all token = %s\n", token);
+	int tmp_num = 1;
+	int last_version_num = 0;
+	while(token != NULL)
+	{
+		LOG(0, 0, 0, "init_version_array 111 token = %s\n", token);
+		//init array
+		{
+			int version_num = get_version_all_number(token);
+			
+			if(tmp_num%2 != 0 )
+			{
+				last_version_num = version_num;
+			}
+			
+			LOG(0, 0, 0, "init_version_array 111 last_version_num = %d\n", last_version_num);
+			LOG(0, 0, 0, "init_version_array 111 version_num = %d\n", version_num);
+			//*(version_chars+version_num) = 1;
+			version_chars[version_num] = 1;
+			
+			if(tmp_num%2 == 0 )
+			{
+				if (version_num != last_version_num)
+				{
+					int i_index = last_version_num;
+					while(i_index<=version_num)
+					{
+						version_chars[i_index] = 1;
+						LOG(0, 0, 0, "init_version_array 111 i_index = %d\n", i_index);
+						LOG(0, 0, 0, "init_version_array 111 result = %d\n", version_chars[i_index]);
+						i_index = i_index + 1;
+					}
+				}
+			}
+			
+			LOG(0, 0, 0, "init_version_array 111 version_num result= %d\n", version_chars[version_num]);
+		}
+		LOG(0, 0, 0, "init_version_array 222 token = %s\n", token);
+		token = strtok(NULL, seps);
+		tmp_num = tmp_num + 1;
+		LOG(0, 0, 0, "init_version_array 333 token = %s\n", token);
+	}
+	
+	int i_tmp=0;
+	while( version_chars[i_tmp] != '\0' )
+	{
+		//LOG(0, 0, 0, "version_chars index: %d\n", i_tmp);
+		if ( version_chars[i_tmp] != 0)
+		{
+			LOG(0, 0, 0, "version_chars index: %d\n", i_tmp);
+			LOG(0, 0, 0, "version_chars num: %d\n", version_chars[i_tmp]);
+		}
+		i_tmp = i_tmp +1;
+	}
+	
+	/*
+	char head[100]; //版本头
+	char version[50]; //具体版本号
+	memset(head, 0, 100);
+	memset(version, 0, 50);
+	int i_last_import_position = 0;
+	int i_current_position = 0;
+	int head_pos = 0;
+	int p_pos = 0;
+	int version_first = 0;
+	int version_second = 0;
+    while(*p)
+    {	
+		
+		version_first = 0;
+		version_second = 0;
+		if(*p == '-')//get version first
+        {
+			memset(head, 0, 100);
+            memset(version, 0, 50);
+			strncpy(head, p+p_pos, i_current_position-p_pos); //head contain .
+			p_pos = i_current_position;
+			head_pos = 0;
+			int pos_num = 0;
+			while(*head)
+			{
+				if (*head == '.')
+				{
+					strcpy(version+head_pos,head+head_pos+1,(strlen(head)-head_pos));
+				}
+				head_pos++;
+			}
+			version_first = atoi(version)
+			i_last_import_position = i_last_import_position;
+        }
+		else if (*p == ';')//get version second
+		{
+			memset(head, 0, 100);
+			memset(version, 0, 50);
+			strncpy(head+i_current_position, p+i_current_position, i_current_position); //head contain .
+			head_pos = 0;
+			int pos_num = 0;
+			while(*head)
+			{
+				if (*head == '.')
+				{
+					strcpy(version+head_pos,head+head_pos+1,(strlen(head)-head_pos));
+				}
+				head_pos++;
+			}
+			version_second = atoi(version)
+			i_last_import_position = i_last_import_position;
+			
+			for(int i = 0;i<version_second&&i>version_first;i++) //set version map is one(those version cannot acce)
+				//*(version_chars+i) = 1;
+		}
+		
+        p++;
+        i_current_position++;
+    }
+	*/
 }
 
 static int assign_ip_address(sessionidt s)
@@ -5991,13 +6126,30 @@ int main(int argc, char *argv[])
 	strftime(time_now_string, sizeof(time_now_string), "%Y-%m-%d %H:%M:%S", localtime(&time_now));
 
 	initplugins();
+	
+	//LOG(0, 0, 0, "before initdata initdata \n");
 	initdata(optdebug, optconfig);
-
+	//LOG(0, 0, 0, "after initdata initdata \n");
+	
 	init_cli(hostname);
 	read_config_file();
 	update_config();
 	init_tbf(config->num_tbfs);
-
+	
+	/*
+	int i_tmp=0;
+	while( (version_chars+i_tmp) != NULL )
+	{
+		LOG(0, 0, 0, "version_chars index: %d\n", i_tmp);
+		//if ( *(version_chars+i_tmp) != 0)
+		{
+			//LOG(0, 0, 0, "version_chars index: %d\n", i_tmp);
+			//LOG(0, 0, 0, "version_chars num: %d\n", *(version_chars+i_tmp));
+		}
+		i_tmp = i_tmp +1;
+	}
+	*/
+	
 	LOG(0, 0, 0, "L2TPNS version " VERSION "\n");
 	LOG(0, 0, 0, "Copyright (c) 2003, 2004, 2005 Optus Internet Engineering\n");
 	LOG(0, 0, 0, "Copyright (c) 2002 FireBrick (Andrews & Arnold Ltd / Watchfront Ltd) - GPL licenced\n");
@@ -6012,7 +6164,7 @@ int main(int argc, char *argv[])
 		// Make core dumps go to /tmp
 		chdir("/tmp");
 	}
-
+	
 	if (config->scheduler_fifo)
 	{
 		int ret;
@@ -6077,7 +6229,17 @@ int main(int argc, char *argv[])
 	// Drop privileges here
 	if (config->target_uid > 0 && geteuid() == 0)
 		setuid(config->target_uid);
-
+	
+	//init version array
+	version_chars[VERSION_MAX_LENGTH-1] = '\0';
+	int i_tmp=0;
+	while( version_chars[i_tmp] != '\0' )
+	{
+		version_chars[i_tmp] = 0;
+		i_tmp = i_tmp +1;
+	}
+	init_version_array();
+		
 	mainloop();
 
 	/* remove plugins (so cleanup code gets run) */
@@ -7416,5 +7578,60 @@ int get_version_number(char * pstr_version)
     return i_version_number;
 }
 
+/*
+//cash before strtok buffer
+int get_version_all_number(char * pstr_version)
+{
+	if (pstr_version == NULL)
+    {
+        return -1;
+    }
+	char* a = NULL;
+	a=(char *)malloc(100);
+	memset(a,0,100);
+	strcpy(a,pstr_version); //tmp num
+	//char a[] = "this is a dog.";
+	char *toks = ".";
+	char * tok = strtok( a, toks );
+	while( tok )
+	{
+		if( tok == a )
+			strcpy( a, tok );
+		else
+			strcat( a, tok );
+		tok = strtok( NULL, toks );
+	}
+	int i_version_number = 0;
+	i_version_number = atoi(a);
+	if (a != NULL)
+	{
+		free(a);
+		a = NULL;
+	}
+    return i_version_number;
+}
+*/
 
 
+int get_version_all_number(char * pstr_version)
+{
+	if (pstr_version == NULL)
+    {
+        return -1;
+    }
+
+	 int i,j=0;
+     char sp[512];
+     for (i = 0; *(pstr_version + i) != '\0'; i++) 
+	 {
+		if (*(pstr_version + i) == '.' )
+			continue;
+         sp[j++]=*(pstr_version + i);
+     }
+     sp[j] = 0;
+     //strcpy(pstr_version, sp);
+	
+	int i_version_number = 0;
+	i_version_number = atoi(sp);
+    return i_version_number;
+}

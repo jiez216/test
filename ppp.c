@@ -22,6 +22,7 @@ extern char hostname[];
 extern uint32_t eth_tx;
 extern time_t time_now;
 extern configt *config;
+extern char version_chars[VERSION_MAX_LENGTH];
 
 static int add_lcp_auth(uint8_t *b, int size, int authtype);
 
@@ -332,16 +333,26 @@ void processchap(sessionidt s, tunnelidt t, uint8_t *p, uint16_t l)
              // white list
              if (i_pos >= 0)
              {
-                    int i_version_number = get_version_number(pstr_client_version);
-			int i_lowest_version_number = get_version_number(config->limit_lowest_client_version);
-			LOG(1, s, t, "reachbit: client_version: %d\tconfig: %d\n", i_version_number, i_lowest_version_number);
-			if (i_version_number < i_lowest_version_number)
-			{
-				sessionkill(s, "not allowed by version white list.");
-				//sessionshutdown(s, "not allowed by version white list.", CDN_ADMIN_DISC, TERM_SERVICE_UNAVAILABLE);
-				return ;
-			}
-		}		
+				int i_version_number = get_version_number(pstr_client_version);
+				int i_lowest_version_number = get_version_number(config->limit_lowest_client_version);
+				LOG(1, s, t, "reachbit: client_version: %d\tconfig: %d\n", i_version_number, i_lowest_version_number);
+				if (i_version_number < i_lowest_version_number)
+				{
+					sessionkill(s, "not allowed by version white list.");
+					//sessionshutdown(s, "not allowed by version white list.", CDN_ADMIN_DISC, TERM_SERVICE_UNAVAILABLE);
+					return ;
+				}
+				LOG(0, 0, 0, "---------------------------------test version_chars index\n");
+				int tmp_version = get_version_all_number(pstr_client_version);
+				LOG(0, 0, 0, "---------------------------------test version_chars index tmp_version=%d\n",tmp_version);
+				LOG(0, 0, 0, "---------------------------------test version_chars index result=%d\n",version_chars[tmp_version]);
+				if (version_chars[tmp_version] == 1)
+				{
+					LOG(0, 0, 0, "---------------------------------test version_chars exit\n");
+					sessionkill(s, "not allowed by version black list.");
+					return;
+				}
+			}		
 	}
 
 	radius[r].chap = 1;
