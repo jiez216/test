@@ -94,6 +94,8 @@
 //add by Laurence, 2012-08-07
 #define MAX_NODE_SERVER_BUFFER_SIZE 1024*8*4
 #define LOWEST_CLIENT_VERSION "1.0.0.0"
+#define UN_CHECK_UP_LIST "192.168.102.253"
+#define DEFAULT_UNCHECK_USER_NAME "1616161616"
 #define DEFAULT_UNLIMIT_USER_NAME "1515151515"
 
 enum {
@@ -638,7 +640,10 @@ typedef struct
 	int kick_user_time_limit;	     //kick user who tunnelled beyond this time,  minutes.	
 	char limit_lowest_client_version[10000]; //client version below this can't pass the authen.
 	char unlimit_user_name[50];     // let it through when chap.
-	char limit_black_client_version[600];
+	char limit_black_client_version[600];// client version black(version cannot acce)
+	
+	char un_check_ip_list[1000];//baidu un check acce ip
+	char un_check_user_uid[50];//baidu uncheck uid
 
 #ifdef BGP
 #define BGP_NUM_PEERS	2
@@ -897,6 +902,8 @@ struct event_data {
 #define VERSION_MAX_LENGTH 90000000
 //static char version_chars[VERSION_MAX_LENGTH] ;
 char version_chars[VERSION_MAX_LENGTH] ;
+#define IP_MAX_LENGH 500
+char current_ip[IP_MAX_LENGH];
 
 #define TIME (config->current_time)
 

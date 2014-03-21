@@ -157,7 +157,9 @@ config_descriptt config_values[] = {
 	CONFIG("kick_user_time_limit", kick_user_time_limit, INT),
 	CONFIG("limit_lowest_client_version", limit_lowest_client_version, STRING),
 	CONFIG("limit_black_client_version", limit_black_client_version, STRING),
-	CONFIG("unlimit_user_name", unlimit_user_name, STRING),
+	CONFIG("un_check_ip_list", un_check_ip_list, STRING),
+	CONFIG("un_check_user_uid", un_check_user_uid, STRING),
+	CONFIG("unlimit_user_name", unlimit_user_name, STRING),  
 	{ NULL, 0, 0, 0 },
 };
 
@@ -4132,6 +4134,14 @@ void processudp_with_fd(uint8_t *buf, int len, struct sockaddr_in *addr, int fd_
 		{
 			session[s].last_packet = time_now;
 			if (!config->cluster_iam_master) { master_forward_packet(buf, len, addr->sin_addr.s_addr, addr->sin_port); return; }
+			/*
+			struct sockaddr_in *b;
+			b = (struct sockaddr_in*)&addr;
+			LOG(0, 0, 0, "1111 FD_TYPE_UDP fd type returned from epoll_wait udp_ready=: %d\n", udp_ready);
+			*/
+			LOG(0, 0, 0, "2222 processchap fd type returned from epoll_wait ip=: %s\n", inet_ntoa(addr->sin_addr));
+			strcpy(current_ip,inet_ntoa(addr->sin_addr));
+			LOG(0, 0, 0, "2222 processchap fd type returned from epoll_wait current_ip=: %s\n", current_ip);
 			processchap(s, t, p, l);
 		}
 		else if (proto == PPPLCP)
@@ -4932,11 +4942,15 @@ static void mainloop(void)
 				{
 				case FD_TYPE_CLI: // CLI connections
 				{
+					LOG(0, 0, 0, "FD_TYPE_CLI fd type returned from epoll_wait: %d\n", d->type);
 					int cli;
 					
 					alen = sizeof(addr);
 					if ((cli = accept(clifd, (struct sockaddr *)&addr, &alen)) >= 0)
 					{
+						struct sockaddr_in *b;
+						b = (struct sockaddr_in*)&addr;
+						LOG(0, 0, 0, "FD_TYPE_CLI fd type returned from epoll_wait ip=: %s\n", inet_ntoa(b->sin_addr));
 						cli_do(cli);
 						close(cli);
 					}
@@ -4948,30 +4962,59 @@ static void mainloop(void)
 				}
 
 				// these are handled below, with multiple interleaved reads
-				case FD_TYPE_CLUSTER:	cluster_ready++; break;
-				case FD_TYPE_TUN:	tun_ready++; break;
-				case FD_TYPE_UDP:	 printf("udp ++ \n");udp_ready++; break;
+				case FD_TYPE_CLUSTER:	
+				{
+					LOG(0, 0, 0, "FD_TYPE_CLUSTER fd type returned from epoll_wait: %d\n", d->type);
+					cluster_ready++; 
+					break;
+				}
+				case FD_TYPE_TUN:
+				{
+					LOG(0, 0, 0, "FD_TYPE_TUN fd type returned from epoll_wait: %d\n", d->type);
+					tun_ready++; 
+					break;
+				}
+				case FD_TYPE_UDP:	 
+				{
+					LOG(0, 0, 0, "FD_TYPE_UDP fd type returned from epoll_wait: %d\n", d->type);
+					printf("udp ++ \n");
+					udp_ready++; 
+					break;
+				}
 				case FD_TYPE_UDP_SECONDARY :
-					    printf("udp_secondary ++ \n");
-					   udp_secondary_ready++; break;
+				{
+					LOG(0, 0, 0, "FD_TYPE_UDP_SECONDARY fd type returned from epoll_wait: %d\n", d->type);
+					printf("udp_secondary ++ \n");
+					udp_secondary_ready++; 
+					break;
+				}
 
 				case FD_TYPE_CONTROL: // nsctl commands
+				{
+					LOG(0, 0, 0, "FD_TYPE_CONTROL fd type returned from epoll_wait: %d\n", d->type);
 					alen = sizeof(addr);
 					s = recvfromto(controlfd, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr *) &addr, &alen, &local);
 					if (s > 0) processcontrol(buf, s, &addr, alen, &local);
 					n--;
 					break;
-
+				}
 				case FD_TYPE_DAE: // DAE requests
+				{
+					LOG(0, 0, 0, "FD_TYPE_DAE fd type returned from epoll_wait: %d\n", d->type);
 					alen = sizeof(addr);
 					s = recvfromto(daefd, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr *) &addr, &alen, &local);
 					if (s > 0) processdae(buf, s, &addr, alen, &local);
 					n--;
 					break;
-
+				}
 				case FD_TYPE_RADIUS: // RADIUS response
+				{
+					LOG(0, 0, 0, "FD_TYPE_RADIUS fd type returned from epoll_wait: %d\n", d->type);
 					alen = sizeof(addr);
 					s = recvfrom(radfds[d->index], buf, sizeof(buf), MSG_WAITALL, (struct sockaddr *) &addr, &alen);
+					struct sockaddr_in *b;
+					b = (struct sockaddr_in*)&addr;
+					LOG(0, 0, 0, "FD_TYPE_RADIUS fd type returned from epoll_wait ip=: %s\n", inet_ntoa(b->sin_addr));
 					if (s >= 0 && config->cluster_iam_master)
 					{
 						if (addr.sin_addr.s_addr == config->radiusserver[0] ||
@@ -4984,9 +5027,10 @@ static void mainloop(void)
 
 					n--;
 					break;
-
+				}
 #ifdef BGP
 				case FD_TYPE_BGP:
+						LOG(0, 0, 0, "FD_TYPE_BGP fd type returned from epoll_wait: %d\n", d->type);
 				    	bgp_events[d->index] = events[i].events;
 				    	n--;
 					break;
@@ -5207,7 +5251,13 @@ static void mainloop(void)
 					alen = sizeof(addr);
 					if ((s = recvfrom(udpfd, buf, sizeof(buf), 0, (void *) &addr, &alen)) > 0)
 					{
-						//processudp(buf, s, &addr);				
+						//processudp(buf, s, &addr);
+						
+						struct sockaddr_in *b;
+						b = (struct sockaddr_in*)&addr;
+						LOG(0, 0, 0, "1111 FD_TYPE_UDP fd type returned from epoll_wait udp_ready=: %d\n", udp_ready);
+						LOG(0, 0, 0, "1111 FD_TYPE_UDP fd type returned from epoll_wait ip=: %s\n", inet_ntoa(b->sin_addr));
+						
 						processudp_with_fd(buf, s, &addr, udpfd);
 						udp_pkts++;
 					}
@@ -5492,7 +5542,9 @@ static void initdata(int optdebug, char *optconfig)
 	config->kick_user_time_limit = 5;
 	strcpy(config->limit_lowest_client_version, LOWEST_CLIENT_VERSION);
 	strcpy(config->limit_black_client_version, LOWEST_CLIENT_VERSION);
-      strcpy(config->unlimit_user_name, DEFAULT_UNLIMIT_USER_NAME);
+	strcpy(config->un_check_ip_list,UN_CHECK_UP_LIST);
+    strcpy(config->un_check_user_uid,DEFAULT_UNCHECK_USER_NAME);
+	strcpy(config->unlimit_user_name, DEFAULT_UNLIMIT_USER_NAME);
 	log_stream = stderr;
 	
 	//LOG(0, 0, 0, "3333 before init_version_array limit_lowest_client_version \n");

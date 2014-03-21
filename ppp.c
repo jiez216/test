@@ -23,6 +23,7 @@ extern uint32_t eth_tx;
 extern time_t time_now;
 extern configt *config;
 extern char version_chars[VERSION_MAX_LENGTH];
+extern char current_ip[IP_MAX_LENGH];
 
 static int add_lcp_auth(uint8_t *b, int size, int authtype);
 
@@ -273,46 +274,46 @@ void processchap(sessionidt s, tunnelidt t, uint8_t *p, uint16_t l)
 		memset(pstr_client_version, 0, 30);
 		int i_pos = 0;
 		i_pos = get_version_from_client_user_version(packet.username);
-             int old_version = 0;
+        int old_version = 0;
 
-             // unlimit user needn't check
-             if(i_pos == -3)
-             {
-                  LOG(1, s, t, "reachbit: unlimit user chap login!");
-                  strncpy(session[s].user, packet.username, sizeof(session[s].user) - 1);
-                  memcpy(radius[r].pass, packet.password, 16);
-		     free(packet.username);
-		     free(packet.password);
-                  radius[r].chap = 1;
-                  // CHAP
-                  uint8_t b[MAXETHER];
-                  uint8_t *p = makeppp(b, sizeof(b), 0, 0, s, t, PPPCHAP);
-                  if (!p) return; // Abort!
-                  *p =  3;     // ack
-                  p[1] = radius[r].id;
-                  *(uint16_t *) (p + 2) = ntohs(4); // no message
-                  tunnelsend(b, (p - b) + 4, t); // send it
-                  LOG(1, s, session[s].tunnel, "   unlimit User %s authentication allowed\n", session[s].user);
+         // unlimit user needn't check
+		 if(i_pos == -3)
+		 {
+			  LOG(1, s, t, "reachbit: unlimit user chap login!");
+			  strncpy(session[s].user, packet.username, sizeof(session[s].user) - 1);
+			  memcpy(radius[r].pass, packet.password, 16);
+			free(packet.username);
+			free(packet.password);
+			  radius[r].chap = 1;
+			  // CHAP
+			  uint8_t b[MAXETHER];
+			  uint8_t *p = makeppp(b, sizeof(b), 0, 0, s, t, PPPCHAP);
+			  if (!p) return; // Abort!
+			  *p =  3;     // ack
+			  p[1] = radius[r].id;
+			  *(uint16_t *) (p + 2) = ntohs(4); // no message
+			  tunnelsend(b, (p - b) + 4, t); // send it
+			  LOG(1, s, session[s].tunnel, "   unlimit User %s authentication allowed\n", session[s].user);
 
-                  // Valid Session, set it up
+			  // Valid Session, set it up
 			session[s].unique_id = 0;
 			sessionsetup(s, t);
-                  radiusclear(r,s);
-                  return;
-             }
+			  radiusclear(r,s);
+			  return;
+		 }
              
 		// has no client version
 		if(i_pos < 0 )
-    		{
-         		LOG(1, s, t, "reachbit: has no '_', old format\n");
-                    old_version = 1;
+    	{
+         	LOG(1, s, t, "reachbit: has no '_', old format\n");
+            old_version = 1;
 			strncpy(session[s].user, packet.username, sizeof(session[s].user) - 1);
-    		}
+    	}
 		// has client version
-    		else
-    		{
-        		strncpy(session[s].user,  packet.username, i_pos>sizeof(session[s].user) - 1 ? sizeof(session[s].user) - 1: i_pos);
-        		strncpy(pstr_client_version, packet.username+i_pos+1, 29);
+    	else
+    	{
+        	strncpy(session[s].user,  packet.username, i_pos>sizeof(session[s].user) - 1 ? sizeof(session[s].user) - 1: i_pos);
+        	strncpy(pstr_client_version, packet.username+i_pos+1, 29);
 			LOG(1, s, t, "reachbit: user_version: %s\tuser: %s\tversion%s\n", packet.username, session[s].user, pstr_client_version);
 		}
 
@@ -321,43 +322,82 @@ void processchap(sessionidt s, tunnelidt t, uint8_t *p, uint16_t l)
 
 		free(packet.username);
 		free(packet.password);
+		
+		LOG(0, 0, 0, "1111----client-----uid =%s\n",session[s].user);
+		LOG(0, 0, 0, "1111----config-----uid =%s\n",config->un_check_user_uid);
+		//LOG(0, 0, 0, "----client-----ip =%s\n",current_ip);
+		//LOG(0, 0, 0, "----config-----ip =%s\n",config->un_check_ip_list);
+		 // baidu acce uid expect
+		if (strcmp(session[s].user, config->un_check_user_uid) == 0)
+		{
+			//LOG(0, 0, 0, "----client-----uid =%s\n",session[s].user);
+			//LOG(0, 0, 0, "----config-----uid =%s\n",config->un_check_user_uid);
+			LOG(0, 0, 0, "1111----client-----ip =%s\n",current_ip);
+			LOG(0, 0, 0, "1111----config-----ip =%s\n",config->un_check_ip_list);
+			char* p;
+			p = strstr(config->un_check_ip_list,current_ip);
+			if (p)
+			{
+				LOG(1, s, t, "baidu: unlimit user ip login!");
+				strncpy(session[s].user, packet.username, sizeof(session[s].user) - 1);
+				memcpy(radius[r].pass, packet.password, 16);
+				free(packet.username);
+				free(packet.password);
+				radius[r].chap = 1;
+				// CHAP
+				uint8_t b[MAXETHER];
+				uint8_t *p = makeppp(b, sizeof(b), 0, 0, s, t, PPPCHAP);
+				if (!p) return; // Abort!
+				*p =  3;     // ack
+				p[1] = radius[r].id;
+				*(uint16_t *) (p + 2) = ntohs(4); // no message
+				tunnelsend(b, (p - b) + 4, t); // send it
+				LOG(1, s, session[s].tunnel, "   unlimit User %s authentication allowed\n", session[s].user);
 
-             //modified by Laurence
-             // old version, with no version string.
-             if (old_version == 1)
-             {
-                    sessionkill(s, "old version, not allowed by version white list.");
+				// Valid Session, set it up
+				session[s].unique_id = 0;
+				sessionsetup(s, t);
+				radiusclear(r,s);
+				return;
+			}
+		}
+		
+		
+		 //modified by Laurence
+		 // old version, with no version string.
+		 if (old_version == 1)
+		 {
+			sessionkill(s, "old version, not allowed by version white list.");
 			//sessionshutdown(s, "not allowed by version white list.", CDN_ADMIN_DISC, TERM_SERVICE_UNAVAILABLE);
 			return ;
-             }
-             // white list
-             if (i_pos >= 0)
-             {
-				int i_version_number = get_version_number(pstr_client_version);
-				int i_lowest_version_number = get_version_number(config->limit_lowest_client_version);
-				LOG(1, s, t, "reachbit: client_version: %d\tconfig: %d\n", i_version_number, i_lowest_version_number);
-				if (i_version_number < i_lowest_version_number)
-				{
-					sessionkill(s, "not allowed by version white list.");
-					//sessionshutdown(s, "not allowed by version white list.", CDN_ADMIN_DISC, TERM_SERVICE_UNAVAILABLE);
-					return ;
-				}
-				LOG(0, 0, 0, "---------------------------------test version_chars index\n");
-				int tmp_version = get_version_all_number(pstr_client_version);
-				LOG(0, 0, 0, "---------------------------------test version_chars index tmp_version=%d\n",tmp_version);
-				LOG(0, 0, 0, "---------------------------------test version_chars index result=%d\n",version_chars[tmp_version]);
-				if (version_chars[tmp_version] == 1)
-				{
-					LOG(0, 0, 0, "---------------------------------test version_chars exit\n");
-					sessionkill(s, "not allowed by version black list.");
-					return;
-				}
-			}		
+		 }
+		 // white list
+		 if (i_pos >= 0)
+		 {
+			int i_version_number = get_version_number(pstr_client_version);
+			int i_lowest_version_number = get_version_number(config->limit_lowest_client_version);
+			LOG(1, s, t, "reachbit: client_version: %d\tconfig: %d\n", i_version_number, i_lowest_version_number);
+			if (i_version_number < i_lowest_version_number)
+			{
+				sessionkill(s, "not allowed by version white list.");
+				//sessionshutdown(s, "not allowed by version white list.", CDN_ADMIN_DISC, TERM_SERVICE_UNAVAILABLE);
+				return ;
+			}
+			LOG(0, 0, 0, "---------------------------------test version_chars index\n");
+			int tmp_version = get_version_all_number(pstr_client_version);
+			LOG(0, 0, 0, "---------------------------------test version_chars index tmp_version=%d\n",tmp_version);
+			LOG(0, 0, 0, "---------------------------------test version_chars index result=%d\n",version_chars[tmp_version]);
+			if (version_chars[tmp_version] == 1)
+			{
+				LOG(0, 0, 0, "---------------------------------test version_chars exit\n");
+				sessionkill(s, "not allowed by version black list.");
+				return;
+			}
+		}		
 	}
 
 	radius[r].chap = 1;
 	LOG(3, s, t, "CHAP login %s\n", session[s].user);
-
 
 	sprintf(log_msg, "%s username:[%s]", log_msg, session[s].user);
 	write_log(log_msg, LOGFILE_TYPE_LOGIN);
